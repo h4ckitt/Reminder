@@ -1,5 +1,15 @@
 #!/bin/bash
-time=$(zenity --entry \
+name=$(
+	yad --entry \
+	--center \
+	--text="Enter A Name For Your Reminder" \
+	--title="Reminder Name" \
+	--width=450 \
+	2>/dev/null
+)
+
+time=$(yad --entry \
+--center \
 --text="Hola Boss, When Do You Want To Be Reminded" \
 --title="Reminder" \
 --width=300 \
@@ -10,7 +20,9 @@ dow=("monday" "tuesday" "wednesday" "thursday" "friday" "saturday" "sunday")
 special_cases=("september" "april" "june" "november")
 months=("january" "february" "march" "april" "may" "june" "july" "august" "september" "october" "november" "december")
 decideWhen(){
-date=$(tr '[:upper:]' '[:lower:]' <<< "$@")
+name="$1"
+shift
+date=$(tr '[:upper:]' '[:lower:]' <<< "$1")
 time=$(sed 's@[a-z]@@g' <<< $date | sed 's/ //g')
 for i in "${cases[@]}"; do
 	if [[ "$date" =~ "$i" ]] || [[ $date =~ [[:digit:]] ]]; then
@@ -168,7 +180,7 @@ for i in "${cases[@]}"; do
 						display_hour=$hour
 						TOD=Am
 					fi
-					zenity --info --text="Reminder Set For $display_hour:$minute $TOD" --width=300 --title="Reminder Set" 2>/dev/null
+					yad --text="Reminder "$name" Set For $display_hour:$minute $TOD" --width=300 --title="Reminder Set" 2>/dev/null &
 					IFS=','
 					local params=("today" "$secs_to_sleep")					
 					echo "${params[@]}"
@@ -251,6 +263,9 @@ for i in "${cases[@]}"; do
 					echo "Work In Progress, Coming Soon"
 					;;
 		*[[:digit:]]*)
+					declare -i secs_to_sleep=0
+					
+					present_minute=$(date +%M)
 					custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
 					if [ ! -z $(grep -i -o pm <<< $date) ]; then
 					TOD=pm
@@ -264,19 +279,55 @@ for i in "${cases[@]}"; do
 					hour=00 ; min=00 ; sec=00
 					IFS=':'; for i in $time ; do
 					if [ $counter -eq 0 ]; then
+						hr=$i						
 						hour=$(printf '%02g' $i)
 						counter+=1
 					elif [ $counter -eq 1 ]; then
+						minit=$i
 						min=$(printf '%02g' $i)
 						counter+=1					
 					fi
 					
 				done
-				tm="$hour":"$min"
-				echo "Sure, Will Blast Your Reminder By $tm $TOD"
+				tm="$hour":"$min"				
 				if [ "$TOD" == "pm" ]; then
-					hour=$((hour+12))
+					hr=$((hr+12))
 				fi
+				if [ "$TOD" == "am" ] && [ $hr -lt $(date +%H) ]; then
+				heur=$(date +%H)
+				hr=$((hr+24))
+				heur=$((hr-heur))
+				if [ $minit -lt $(date +%M) ]; then
+					min_diff=$((60+minit))
+					minit=$(date +%M)
+					min_diff=$((min_diff-minit))
+					heur=$((heur-1))
+				fi
+				secs_to_sleep=$((heur*3600))
+				secs_to_sleep+=$((min_diff*60))
+				yad --image=dialog-information --text="Reminder "$name" Set For $heur hour $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &			
+				elif [ $minit -lt $(date +%M) ]; then
+					min_diff=$((60+minit))
+					minit=$(date +%M)
+					min_diff=$((min_diff-minit))
+					secs_to_sleep=$((min_diff*60))
+					yad --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &
+				else
+					heur=$(date +%H)
+					heur=$((hr-heur))
+					secs_to_sleep=$((heur*3600))
+					min=$(date +%M)
+					min_diff=$((minit-min))
+					secs_to_sleep+=$((min_diff*60))
+					if [ $heur -gt 0 ]; then
+					yad --image=dialog-information --text="Reminder "$name" Set For $heur hour $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &
+				else
+					yad --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &
+				fi
+				fi				
+					IFS=','
+					local params=("today" "$secs_to_sleep")					
+					echo "${params[@]}"
 				break
 					;;		
 		*) echo "No case For This Yet";;
@@ -286,9 +337,8 @@ done
 }
 formerIFS="$IFS"
 IFS=','
-x=($(decideWhen $time))
+x=($(decideWhen $name $time))
 IFS="$formerIFS"
-echo $message
 declare -i counter=0
 for i in ${x[@]}; do
 	if [ $counter -eq 0 ]; then
@@ -301,7 +351,7 @@ for i in ${x[@]}; do
 done
 
 case $when in 
-	"today")echo $message 
+	"today") 
 			sleep $interval
 			zenity --info --text="Yo, You Asked To Be Reminded Of Something I Don't Remember Now" --title="Reminder" --width=300 2>/dev/null
 			exit 0
