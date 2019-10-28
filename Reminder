@@ -5,7 +5,7 @@ time=$(zenity --entry \
 --width=300 \
 2>/dev/null
 )
-cases=("tomorrow" "next week" "hour" "minute" "minutes" "days" "today")
+cases=("tomorrow" "next week" "hour" "minute" "minutes" "days" "today" "min" "mins" "hr")
 dow=("monday" "tuesday" "wednesday" "thursday" "friday" "saturday" "sunday")
 special_cases=("september" "april" "june" "november")
 months=("january" "february" "march" "april" "may" "june" "july" "august" "september" "october" "november" "december")
@@ -123,9 +123,9 @@ for i in "${cases[@]}"; do
 			fi
 			break
 			;;
-		*"hour"*|*"minutes"*|*"minute"*) custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
+		*"hour"*|*"min"*|*"hr"*) custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
 						
-						if [ ! -z "$(grep -i minute <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
+						if [ ! -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" -o ! -z "$(grep -i hr <<< $date)" ]; then
 						declare -i counter=0
 						IFS=' ';for i in $custom_time ; do							
 							if [ $counter -eq 0 ]; then								
@@ -139,11 +139,11 @@ for i in "${cases[@]}"; do
 
 						done
 					fi
-					if [ -z "$(grep -i minute <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
+					if [ -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" -o ! -z "$(grep -i hr <<< $date)" ]; then
 					hour=$time
 					minute=$(date +%M)
 					hour=$(($(date +%H)+hour))
-				elif [ ! -z "$(grep -i minute <<< $date)" ] && [ -z "$(grep -i hour <<< $date)" ]; then
+				elif [ ! -z "$(grep -i min <<< $date)" ] && [ -z "$(grep -i hour <<< $date)" -o -z "$(grep -i hr <<< $date)" ]; then
 					minute=$time
 					hour=$(date +%H)
 					minute=$(($(date +%M)+minute))
