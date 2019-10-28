@@ -128,15 +128,15 @@ for i in "${cases[@]}"; do
 						if [ ! -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
 						declare -i counter=0
 						IFS=' ';for i in $custom_time ; do							
-							if [ $counter -eq 0 ]; then															
-								hour=$(printf '%02g' $i)
-								secs_to_sleep=$((hour*3600))
+							if [ $counter -eq 0 ]; then	
+								secs_to_sleep=$((i*3600))														
+								hour=$(printf '%02g' $i)								
 								hour=$(($(date +%H)+hour))								
 								counter+=1
 								continue
-							fi									
-								minute=$(printf '%02g' $i)
-								secs_to_sleep+=$((minute*60))
+							fi
+								secs_to_sleep+=$((i*60))		
+								minute=$(printf '%02g' $i)								
 								minute=$((minute+$(date +%M)))
 
 						done
@@ -150,7 +150,8 @@ for i in "${cases[@]}"; do
 					minute=$time
 					secs_to_sleep=$((minute*60))
 					hour=$(date +%H)
-					minute=$(($(date +%M)+minute))
+					date_minute=$(date +%M)
+					minute=$((date_minute+minute))
 				fi
 					if [ $hour -gt 24 -o $hour -eq 24 ]; then
 						hour=$(printf '%02g' $((hour-24)))
@@ -167,7 +168,9 @@ for i in "${cases[@]}"; do
 						display_hour=$hour
 						TOD=Am
 					fi
-					params=("today" "$secs_to_sleep")
+					zenity --info --text="Reminder Set For $display_hour:$minute $TOD" --width=300 --title="Reminder Set" 2>/dev/null
+					IFS=','
+					local params=("today" "$secs_to_sleep")					
 					echo "${params[@]}"
 					break
 					;;
@@ -281,7 +284,11 @@ for i in "${cases[@]}"; do
 	fi
 done
 }
+formerIFS="$IFS"
+IFS=','
 x=($(decideWhen $time))
+IFS="$formerIFS"
+echo $message
 declare -i counter=0
 for i in ${x[@]}; do
 	if [ $counter -eq 0 ]; then
@@ -289,12 +296,14 @@ for i in ${x[@]}; do
 		counter+=1
 	elif [ $counter -eq 1 ]; then
 		interval=$i
+		counter+=1	
 	fi
 done
 
 case $when in 
-	"today") sleep $interval
-			zenity --info --text="Yo, You Asked To Be Reminded Of Something I Don't Remember Now"
+	"today")echo $message 
+			sleep $interval
+			zenity --info --text="Yo, You Asked To Be Reminded Of Something I Don't Remember Now" --title="Reminder" --width=300 2>/dev/null
 			exit 0
 			;;
 	*) echo "Something Is Really Wrong, Code Is Not Supposed To Reach Here"
