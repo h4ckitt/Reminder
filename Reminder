@@ -123,9 +123,8 @@ for i in "${cases[@]}"; do
 			fi
 			break
 			;;
-		*"hour"*|*"min"*|*"hr"*) custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
-						
-						if [ ! -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" -o ! -z "$(grep -i hr <<< $date)" ]; then
+		*"hour"*|*"min"*|*"hr"*) custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)						
+						if [ ! -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
 						declare -i counter=0
 						IFS=' ';for i in $custom_time ; do							
 							if [ $counter -eq 0 ]; then								
@@ -139,11 +138,11 @@ for i in "${cases[@]}"; do
 
 						done
 					fi
-					if [ -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" -o ! -z "$(grep -i hr <<< $date)" ]; then
+					if [ -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
 					hour=$time
 					minute=$(date +%M)
 					hour=$(($(date +%H)+hour))
-				elif [ ! -z "$(grep -i min <<< $date)" ] && [ -z "$(grep -i hour <<< $date)" -o -z "$(grep -i hr <<< $date)" ]; then
+				elif [ ! -z "$(grep -i min <<< $date)" ] && [ -z "$(grep -i hour <<< $date)" ]; then
 					minute=$time
 					hour=$(date +%H)
 					minute=$(($(date +%M)+minute))
@@ -156,7 +155,14 @@ for i in "${cases[@]}"; do
 						hour=$(printf '%02g' $((hour+1)))
 					fi
 					#hour=$((hour+$time))
-					echo "Will Remind You Of This By $hour:$minute"
+					if [ $hour -gt 12 ]; then
+						display_hour=$((hour-12))
+						TOD=Pm
+					else
+						display_hour=$hour
+						TOD=Am
+					fi
+					echo "Will Remind You Of This By $display_hour:$minute $TOD"
 					break
 					;;
 
@@ -233,7 +239,7 @@ for i in "${cases[@]}"; do
 					;;
 
 		*"next week"*|*"next-week"*)
-					
+					echo "Work In Progress, Coming Soon"
 					;;
 		*[[:digit:]]*)
 					custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
