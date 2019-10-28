@@ -123,27 +123,32 @@ for i in "${cases[@]}"; do
 			fi
 			break
 			;;
-		*"hour"*|*"min"*|*"hr"*) custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)						
+		*"hour"*|*"min"*|*"hr"*) declare -i secs_to_sleep=0
+						 custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)						
 						if [ ! -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
 						declare -i counter=0
 						IFS=' ';for i in $custom_time ; do							
-							if [ $counter -eq 0 ]; then								
+							if [ $counter -eq 0 ]; then															
 								hour=$(printf '%02g' $i)
-								hour=$(($(date +%H)+hour))
+								secs_to_sleep=$((hour*3600))
+								hour=$(($(date +%H)+hour))								
 								counter+=1
 								continue
-							fi								
+							fi									
 								minute=$(printf '%02g' $i)
+								secs_to_sleep+=$((minute*60))
 								minute=$((minute+$(date +%M)))
 
 						done
 					fi
 					if [ -z "$(grep -i min <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
 					hour=$time
+					secs_to_sleep=$((hour*3600))
 					minute=$(date +%M)
 					hour=$(($(date +%H)+hour))
 				elif [ ! -z "$(grep -i min <<< $date)" ] && [ -z "$(grep -i hour <<< $date)" ]; then
 					minute=$time
+					secs_to_sleep=$((minute*60))
 					hour=$(date +%H)
 					minute=$(($(date +%M)+minute))
 				fi
@@ -154,7 +159,7 @@ for i in "${cases[@]}"; do
 						minute=$(printf '%02g' $((minute-60)))
 						hour=$(printf '%02g' $((hour+1)))
 					fi
-					#hour=$((hour+$time))
+					
 					if [ $hour -gt 12 ]; then
 						display_hour=$((hour-12))
 						TOD=Pm
@@ -162,7 +167,8 @@ for i in "${cases[@]}"; do
 						display_hour=$hour
 						TOD=Am
 					fi
-					echo "Will Remind You Of This By $display_hour:$minute $TOD"
+					params=("today" "$secs_to_sleep")
+					echo "${params[@]}"
 					break
 					;;
 
@@ -275,4 +281,22 @@ for i in "${cases[@]}"; do
 	fi
 done
 }
-decideWhen $time
+x=($(decideWhen $time))
+declare -i counter=0
+for i in ${x[@]}; do
+	if [ $counter -eq 0 ]; then
+		when=$i
+		counter+=1
+	elif [ $counter -eq 1 ]; then
+		interval=$i
+	fi
+done
+
+case $when in 
+	"today") sleep $interval
+			zenity --info --text="Yo, You Asked To Be Reminded Of Something I Don't Remember Now"
+			exit 0
+			;;
+	*) echo "Something Is Really Wrong, Code Is Not Supposed To Reach Here"
+		;;
+	esac
