@@ -1,0 +1,272 @@
+#!/bin/bash
+time=$(zenity --entry \
+--text="Hola Boss, When Do You Want To Be Reminded" \
+--title="Reminder" \
+--width=300 \
+2>/dev/null
+)
+cases=("tomorrow" "next week" "hour" "minute" "minutes" "days" "today")
+dow=("monday" "tuesday" "wednesday" "thursday" "friday" "saturday" "sunday")
+special_cases=("september" "april" "june" "november")
+months=("january" "february" "march" "april" "may" "june" "july" "august" "september" "october" "november" "december")
+decideWhen(){
+date=$(tr '[:upper:]' '[:lower:]' <<< "$@")
+time=$(sed 's@[a-z]@@g' <<< $date | sed 's/ //g')
+for i in "${cases[@]}"; do
+	if [[ "$date" =~ "$i" ]] || [[ $date =~ [[:digit:]] ]]; then
+		case $date in
+		*"today"*)
+				custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
+				if [ ! -z $(grep -i -o pm <<< $date) ]; then
+					TOD=pm
+				elif [[ ! -z $(grep -i -o am <<< $date) ]]; then
+					TOD=am
+				else
+					TOD=$(zenity --entry --text="$custom_time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
+					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD)
+				fi
+				hour=00 ; min=00 ; sec=00
+					declare -i counter=0
+					IFS=':'; for i in $time ; do
+					if [ $counter -eq 0 ]; then						
+						hour=$(printf '%02g' $i)
+						counter+=1
+					elif [ $counter -eq 1 ]; then						
+						min=$(printf '%02g' $i)
+						counter+=1					
+					fi
+				done
+				time="$hour":"$min"
+				echo "Got it, I'll Remind You At $time $TOD"
+				if [ "$TOD" == "pm" ]; then
+					hour=$((hour+12))
+				fi
+				break
+				;;
+		*"tomorrow"*)
+				custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
+				if [ -z $custom_time ]; then
+					time=$(zenity --entry --text="What Time Do You Want To Be Reminded Tomorrow? \n Leave Blank To Use Present Time" --width=300 --title="Time?" 2>/dev/null)
+					if [ ! -z $time ]; then
+				if [ ! -z $(grep -i -o pm <<< $time) ]; then
+					TOD=pm
+				elif [[ ! -z $(grep -i -o am <<< $time) ]]; then
+					TOD=am
+				else
+					TOD=$(zenity --entry --text="$time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
+					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD)
+				fi
+			fi
+		fi
+				time=$(sed 's@[a-z]@@g' <<< $time | sed 's/ //g')
+				day=$(date +%A)
+				day=$(tr '[:upper:]' '[:lower:]' <<< $day)
+			     declare -i date=$(date +%d)
+			    date+=1
+			for dey in ${!dow[@]}; do
+				[ "${dow[$dey]}" != "$day" ]||{
+				[ $((dey+1)) != ${#dow[@]} ]||{
+					dey=-1
+				}
+					day="${dow[$((dey+1))]}"
+					day=$(echo -n ${day^} "")
+					break			
+				}
+			done			
+			mnth=$(tr '[:upper:]' '[:lower:]' <<< $(date +%B))
+			for months in ${special_cases[@]};do
+				if [ "$months" == "$munth" ]; then
+					overflow=1
+				fi
+			done
+			if [ $date -gt 30 ]; then				
+				if [ ! -z $overflow ]; then
+					for mth in ${!months[@]}; do
+					if [ "$mnth" == "${months[$mth]}" ]; then
+						mnth=${months[$((mth+1))]}
+						break
+					fi
+				done
+					date=$((date-30))
+				fi
+			fi
+			if [ $date -gt 31 ]; then
+				for mth in ${!months[@]}; do
+					if [ "$mnth" == "${months[$mth]}" ]; then
+						mnth=${months[$((mth+1))]}
+						break
+					fi
+				done
+				date=$((date-31))
+			fi
+			mnth=$(echo -n ${mnth^} "")
+			if [ -z $time ]; then
+				time=$(date +%R)
+			else
+				hour=00 ; min=00 ; sec=00
+					declare -i counter=0
+					IFS=':'; for i in $time ; do
+					if [ $counter -eq 0 ]; then						
+						hour=$(printf '%02g' $i)
+						counter+=1
+					elif [ $counter -eq 1 ]; then
+						min=$(printf '%02g' $i)
+						counter+=1					
+					fi
+				done
+				time="$hour":"$min"
+			fi
+
+			echo "Sure, I'll Remind You On $day $date, $mnth at $time $TOD"
+			if [ "$TOD" == "pm" ]; then
+					hour=$((hour+12))
+			fi
+			break
+			;;
+		*"hour"*|*"minutes"*|*"minute"*) custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
+						
+						if [ ! -z "$(grep -i minute <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
+						declare -i counter=0
+						IFS=' ';for i in $custom_time ; do							
+							if [ $counter -eq 0 ]; then								
+								hour=$(printf '%02g' $i)
+								hour=$(($(date +%H)+hour))
+								counter+=1
+								continue
+							fi								
+								minute=$(printf '%02g' $i)
+								minute=$((minute+$(date +%M)))
+
+						done
+					fi
+					if [ -z "$(grep -i minute <<< $date)" ] && [ ! -z "$(grep -i hour <<< $date)" ]; then
+					hour=$time
+					minute=$(date +%M)
+					hour=$(($(date +%H)+hour))
+				elif [ ! -z "$(grep -i minute <<< $date)" ] && [ -z "$(grep -i hour <<< $date)" ]; then
+					minute=$time
+					hour=$(date +%H)
+					minute=$(($(date +%M)+minute))
+				fi
+					if [ $hour -gt 24 -o $hour -eq 24 ]; then
+						hour=$(printf '%02g' $((hour-24)))
+					fi	
+					if [ $minute -gt 60 -o $minute -eq 60 ]; then
+						minute=$(printf '%02g' $((minute-60)))
+						hour=$(printf '%02g' $((hour+1)))
+					fi
+					#hour=$((hour+$time))
+					echo "Will Remind You Of This By $hour:$minute"
+					break
+					;;
+
+		*"days"*|*"day"*) day=$(date +%A)
+					mnth=$(tr '[:upper:]' '[:lower:]' <<< $(date +%B))
+				  day=$(tr '[:upper:]' '[:lower:]' <<< $day)
+				  custom_date=$(sed 's@[a-z,A-Z]@@g' <<< $date)
+				  IFS=' '; for i in $custom_date; do
+				  	time=$i
+				  	break
+				  done
+				  declare -i date=$(date +%d)				  
+				  date+=$time
+				  for dey in ${!dow[@]}; do
+				[ "${dow[$dey]}" != "$day" ]||{
+				[ $((dey+1)) != ${#dow[@]} ]||{
+					dey=-1
+				}
+					dey=$((dey+time))					
+					dey=$((dey%${#dow[@]}))
+					#dey=$((dey-1))
+					day="${dow[dey]}"
+					day=$(echo -n ${day^} "")
+					break			
+				}
+			done	
+			
+			for months in ${special_cases[@]};do
+				if [ "$months" == "$mnth" ]; then
+					overflow=1
+				fi
+			done
+			if [ $date -gt 30 ]; then				
+				if [ ! -z $overflow ]; then
+					for mth in ${!months[@]}; do
+					if [ "$mnth" == "${months[$mth]}" ]; then
+						mnth=${months[$((mth+1))]}
+						break
+					fi
+				done
+					date=$((date-30))
+				fi
+			fi
+			if [ $date -gt 31 ]; then
+				for mth in ${!months[@]}; do
+					if [ "$mnth" == "${months[$mth]}" ]; then
+						mnth=${months[$((mth+1))]}
+						break
+					fi
+				done
+				date=$((date-31))
+			fi
+			time=$(sed 's@[[:digit:]]@@' <<< $custom_date | sed 's/ //g')
+			if [ -z $time ]; then
+				time=$(date +%R)
+			else
+				hour=00 ; min=00 ; sec=00
+					declare -i counter=0
+					IFS=':'; for i in $time ; do
+					if [ $counter -eq 0 ]; then
+						hour=$(printf '%02g' $i)
+						counter+=1
+					elif [ $counter -eq 1 ]; then
+						min=$(printf '%02g' $i)
+						counter+=1					
+					fi
+				done
+				time="$hour":"$min"
+			fi
+			mnth=$(echo -n ${mnth^} "")
+			declare -A details			
+			echo "Sure, I'll Remind You On $day $date, $mnth at $time"
+			break
+					;;
+
+		*"next week"*|*"next-week"*)
+					
+					;;
+		*[[:digit:]]*)
+					custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
+					if [ ! -z $(grep -i -o pm <<< $date) ]; then
+					TOD=pm
+				elif [[ ! -z $(grep -i -o am <<< $date) ]]; then
+					TOD=am
+				else
+					TOD=$(zenity --entry --text="$custom_time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
+					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD)
+				fi
+					declare -i counter=0
+					hour=00 ; min=00 ; sec=00
+					IFS=':'; for i in $time ; do
+					if [ $counter -eq 0 ]; then
+						hour=$(printf '%02g' $i)
+						counter+=1
+					elif [ $counter -eq 1 ]; then
+						min=$(printf '%02g' $i)
+						counter+=1					
+					fi
+					
+				done
+				tm="$hour":"$min"
+				echo "Sure, Will Blast Your Reminder By $tm $TOD"
+				if [ "$TOD" == "pm" ]; then
+					hour=$((hour+12))
+				fi
+				break
+					;;		
+		*) echo "No case For This Yet";;
+		esac
+	fi
+done
+}
+decideWhen $time
