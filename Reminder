@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 name=$(
 	yad --entry \
 	--center \
@@ -20,8 +20,6 @@ dow=("monday" "tuesday" "wednesday" "thursday" "friday" "saturday" "sunday")
 special_cases=("september" "april" "june" "november")
 months=("january" "february" "march" "april" "may" "june" "july" "august" "september" "october" "november" "december")
 decideWhen(){
-name="$1"
-shift
 date=$(tr '[:upper:]' '[:lower:]' <<< "$1")
 time=$(sed 's@[a-z]@@g' <<< $date | sed 's/ //g')
 for i in "${cases[@]}"; do
@@ -59,6 +57,10 @@ for i in "${cases[@]}"; do
 				custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
 				if [ -z $custom_time ]; then
 					time=$(zenity --entry --text="What Time Do You Want To Be Reminded Tomorrow? \n Leave Blank To Use Present Time" --width=300 --title="Time?" 2>/dev/null)
+					[ ! -z $time ]||{
+						time="$(date +%I):$(date +%M)$(date +%P)"
+					}
+					echo "Time is $time"
 					if [ ! -z $time ]; then
 				if [ ! -z $(grep -i -o pm <<< $time) ]; then
 					TOD=pm
@@ -166,7 +168,7 @@ for i in "${cases[@]}"; do
 					minute=$((date_minute+minute))
 				fi
 					if [ $hour -gt 24 -o $hour -eq 24 ]; then
-						hour=$(printf '%02g' $((hour-24)))
+						hour=$(printf '%02g' $((hour-24)))						
 					fi	
 					if [ $minute -gt 60 -o $minute -eq 60 ]; then
 						minute=$(printf '%02g' $((minute-60)))
@@ -180,7 +182,7 @@ for i in "${cases[@]}"; do
 						display_hour=$hour
 						TOD=Am
 					fi
-					yad --text="Reminder "$name" Set For $display_hour:$minute $TOD" --width=300 --title="Reminder Set" 2>/dev/null &
+					yad --image=dialog-information --center --text="Reminder "$name" Set For $display_hour:$minute $TOD" --width=300 --title="Reminder Set" 2>/dev/null &
 					IFS=','
 					local params=("today" "$secs_to_sleep")					
 					echo "${params[@]}"
@@ -263,8 +265,7 @@ for i in "${cases[@]}"; do
 					echo "Work In Progress, Coming Soon"
 					;;
 		*[[:digit:]]*)
-					declare -i secs_to_sleep=0
-					
+					declare -i secs_to_sleep=0					
 					present_minute=$(date +%M)
 					custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
 					if [ ! -z $(grep -i -o pm <<< $date) ]; then
@@ -293,10 +294,18 @@ for i in "${cases[@]}"; do
 				if [ "$TOD" == "pm" ]; then
 					hr=$((hr+12))
 				fi
-				if [ "$TOD" == "am" ] && [ $hr -lt $(date +%H) ]; then
+
+				if [ "$TOD" == "am" ] && [ $hr -eq 12 ]; then
+					hr=0
+				fi
+				
 				heur=$(date +%H)
+				min=$(date +%M)
+				if [ "$TOD" == "am" ] && [ $hr -lt $(date +%H) -a ! $hr -eq 0 ]; then
 				hr=$((hr+24))
+			fi
 				heur=$((hr-heur))
+				min_diff=$((minit-min))
 				if [ $minit -lt $(date +%M) ]; then
 					min_diff=$((60+minit))
 					minit=$(date +%M)
@@ -305,25 +314,10 @@ for i in "${cases[@]}"; do
 				fi
 				secs_to_sleep=$((heur*3600))
 				secs_to_sleep+=$((min_diff*60))
-				yad --image=dialog-information --text="Reminder "$name" Set For $heur hour $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &			
-				elif [ $minit -lt $(date +%M) ]; then
-					min_diff=$((60+minit))
-					minit=$(date +%M)
-					min_diff=$((min_diff-minit))
-					secs_to_sleep=$((min_diff*60))
-					yad --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &
+				if [ $heur -gt 0 ]; then
+					yad --center --image=dialog-information --text="Reminder "$name" Set For $heur hours $min_diff minutes From Now" --width=300 --title="Reminder Set" --button=gtk-ok 2>/dev/null &
 				else
-					heur=$(date +%H)
-					heur=$((hr-heur))
-					secs_to_sleep=$((heur*3600))
-					min=$(date +%M)
-					min_diff=$((minit-min))
-					secs_to_sleep+=$((min_diff*60))
-					if [ $heur -gt 0 ]; then
-					yad --image=dialog-information --text="Reminder "$name" Set For $heur hour $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &
-				else
-					yad --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" 2>/dev/null &
-				fi
+					yad --center --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" --button=gtk-ok 2>/dev/null &
 				fi				
 					IFS=','
 					local params=("today" "$secs_to_sleep")					
@@ -337,7 +331,7 @@ done
 }
 formerIFS="$IFS"
 IFS=','
-x=($(decideWhen $name $time))
+x=($(decideWhen $time))
 IFS="$formerIFS"
 declare -i counter=0
 for i in ${x[@]}; do
@@ -353,7 +347,7 @@ done
 case $when in 
 	"today") 
 			sleep $interval
-			zenity --info --text="Yo, You Asked To Be Reminded Of Something I Don't Remember Now" --title="Reminder" --width=300 2>/dev/null
+			zenity --info --text="Yo, Here's The Reminder For: $name" --title="Reminder" --width=300 2>/dev/null
 			exit 0
 			;;
 	*) echo "Something Is Really Wrong, Code Is Not Supposed To Reach Here"
