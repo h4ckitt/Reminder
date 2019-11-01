@@ -1,0 +1,24 @@
+#!/bin/bash
+
+#Bot Token
+export token="<Your Token Here>"
+
+#Check Interval
+export interval=3
+
+echo "+"
+echo -e "\nInitializing Dharmy_bot v$version"
+ME=$(curl -s "https://api.telegram.org/bot$token/getMe")
+if [ ! -z $(echo $ME | grep \"ok\"\:true) ]; then
+    ME=$(tr -d "{" <<< $ME| tr -d "}" | tr -d '\"')
+            USERNAME=$(sed 's@.*username\:@@' <<< $ME)
+            echo Username: $USERNAME
+            NAME=$(sed 's@.*first_name\:@@' <<< $ME | sed 's@\,.*@@')
+            echo Name: $NAME
+            ID=$(sed 's@.*id\:@@' <<< $ME | sed 's@\,..*@@')
+            echo ID: $ID
+else
+    echo "Error: Network Issues Or Invalid Token"
+    exit 1
+fi
+
