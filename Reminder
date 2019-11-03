@@ -1,24 +1,35 @@
-#!/bin/bash
-name=$(
-	yad --entry \
-	--center \
-	--text="Enter A Name For Your Reminder" \
-	--title="Reminder Name" \
-	--width=450 \
-	2>/dev/null
-)
+#!/bin/bash -x
+#name=$(
+#	yad --entry \
+#	--center \
+#	--text="Enter A Name For Your Reminder" \
+#	--title="Reminder Name" \
+#	--width=450 \
+#	2>/dev/null
+#)
 
-time=$(yad --entry \
---center \
---text="Hola Boss, When Do You Want To Be Reminded" \
---title="Reminder" \
---width=300 \
-2>/dev/null
-)
+#time=$(yad --entry \
+#--center \
+#--text="Hola Boss, When Do You Want To Be Reminded" \
+#--title="Reminder" \
+#--width=300 \
+#2>/dev/null
+#)
+ln=$(($(wc -l < reminders.conf)+1))
 cases=("tomorrow" "next week" "hour" "minute" "minutes" "days" "today" "min" "mins" "hr")
 dow=("monday" "tuesday" "wednesday" "thursday" "friday" "saturday" "sunday")
 special_cases=("september" "april" "june" "november")
 months=("january" "february" "march" "april" "may" "june" "july" "august" "september" "october" "november" "december")
+recount(){
+	i=$(grep -n $pid reminders.conf | sed 's/:.*//')
+	sed -i ''$i'd' reminders.conf
+	declare -i count=1
+	numLine=$(($(wc -l < reminders.conf)+1))
+	while ! [ $count -eq $numLine ]; do
+		sed -i ''$count's@[[:digit:]]@'$count'@' reminders.conf
+		count+=1
+	done
+}
 decideWhen(){
 date=$(tr '[:upper:]' '[:lower:]' <<< "$@")
 time=$(sed 's@[a-z]@@g' <<< $date | sed 's/ //g')
@@ -35,7 +46,7 @@ for i in "${cases[@]}"; do
 					TOD=am
 				else
 					TOD=$(zenity --entry --text="$custom_time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
-					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD)
+					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD | sed 's@[[:digit:]]@@g')
 				fi
 				hour=00 ; min=00 ; sec=00
 					declare -i counter=0
@@ -53,9 +64,15 @@ for i in "${cases[@]}"; do
 				time="$hour":"$min"
 				#echo "Got it, I'll Remind You At $time $TOD"
 				if [ "$TOD" == "pm" ]; then
+				if [ $hour -lt 10 ]; then
+					hour=$(printf '%01g' $hour)
+				fi
 					hour=$((hour+12))
 				fi
 				if [ "$TOD" == "pm" ] && [ $hr -lt 12 ]; then
+				if [ $hr -lt 10 ]; then
+					hr=$(printf '%01g' $hr)
+				fi
 					hr=$((hr+12))
 				fi
 
@@ -64,6 +81,9 @@ for i in "${cases[@]}"; do
 				fi
 				
 				heur=$(date +%H)
+				if [ $heur -lt 10 ]; then
+					heur=$(printf '%01g' $heur)
+				fi
 				min=$(date +%M)
 				if [ "$TOD" == "am" ] && [ $hr -lt $(date +%H) -a ! $hr -eq 0 ]; then
 				hr=$((hr+24))
@@ -82,10 +102,16 @@ for i in "${cases[@]}"; do
 					yad --center --image=dialog-information --text="Reminder "$name" Set For $heur hours $min_diff minutes From Now" --width=300 --title="Reminder Set" --button=gtk-ok 2>/dev/null &
 				else
 					yad --center --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" --button=gtk-ok 2>/dev/null &
-				fi				
+				fi
+				if [ $heur -gt 12 ]; then
+					hour=$((heur-12))
+					TOD=Pm
+				fi								
 					#IFS=','
 					#local params=("today" "$secs_to_sleep")			
 					#echo "${params[@]}"
+					pid=$(((RANDOM%5000)+1))
+					echo "$ln: |Name: $name|Date: Today|Time: $time|$pid| " >> reminders.conf
 					echo $secs_to_sleep
 				
 				break
@@ -93,22 +119,22 @@ for i in "${cases[@]}"; do
 		*"tomorrow"*)hr=0; minit=0
 				custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
 				if [ -z $custom_time ]; then
-					time=$(zenity --entry --text="What Time Do You Want To Be Reminded Tomorrow? \n Leave Blank To Use Present Time" --width=300 --title="Time?" 2>/dev/null)
+					date=$(zenity --entry --text="What Time Do You Want To Be Reminded Tomorrow? \n Leave Blank To Use Present Time" --width=300 --title="Time?" 2>/dev/null)
 					[ ! -z $time ]||{
-						time="$(date +%I):$(date +%M)$(date +%P)"
+						date="$(date +%I):$(date +%M)$(date +%P)"
 					}
 				fi				
-				if [ ! -z $time ]; then
-				if [ ! -z $(grep -i -o pm <<< $time) ]; then
+				if [ ! -z "$date" ]; then
+				if [ ! -z $(grep -i -o pm <<< "$date") ]; then
 					TOD=pm
-				elif [[ ! -z $(grep -i -o am <<< $time) ]]; then
+				elif [[ ! -z $(grep -i -o am <<< "$date") ]]; then
 					TOD=am
 				else
-					TOD=$(zenity --entry --text="$time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
-					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD)				
+					TOD=$(zenity --entry --text="$custom_time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
+					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD | sed 's@[[:digit:]]@@g')				
 			fi
 		fi
-				time=$(sed 's@[a-z]@@g' <<< $time | sed 's/ //g')
+				time=$(sed 's@[a-z,A-Z]@@g' <<< $date | sed 's/ //g')
 				day=$(date +%A)
 				day=$(tr '[:upper:]' '[:lower:]' <<< $day)
 			     declare -i date=$(date +%d)
@@ -178,6 +204,9 @@ for i in "${cases[@]}"; do
 			fi
 				
 			heur=$(date +%H)
+			if [ $heur -lt 10 ]; then
+					heur=$(printf '%01g' $heur)
+				fi
 			min=$(date +%M)
 			if [ "$TOD" == "am" ] && [ $hr -lt $(date +%H) -a ! $hr -eq 0 ]; then
 				hr=$((hr+24))
@@ -194,10 +223,11 @@ for i in "${cases[@]}"; do
 			secs_to_sleep+=$secs_to_tomorrow
 			secs_to_sleep+=$((hr*3600))
 			secs_to_sleep+=$((minit*60))
-			yad --center --image=dialog-information --text="Reminder Set For $day $date, $mnth At $time $TOD" --title="Reminder" --button=gtk-ok --width=450 2>/dev/null &
-			#local params=("today" "$secs_to_sleep")
-			#echo "${params[@]}"
-			echo $secs_to_sleep
+			yad --center --image=dialog-information --text="Reminder Set For $day $date, $mnth At $time $TOD" --title="Reminder" --button=gtk-ok --width=450 2>/dev/null &			
+			pid=$(((RANDOM%5000)+1))
+			echo "$ln: |Name: $name|Date: Tomorrow|Time: $time|$pid| " >> reminders.conf 
+			local params=($pid $secs_to_sleep)
+			echo "${params[@]}"
 			break
 			;;
 		*"hour"*|*"min"*|*"hr"*) declare -i secs_to_sleep=0
@@ -246,11 +276,12 @@ for i in "${cases[@]}"; do
 						display_hour=$hour
 						TOD=Am
 					fi
-					yad --image=dialog-information --center --text="Reminder $name Set For $display_hour:$minute $TOD" --width=300 --title="Reminder Set" 2>/dev/null &
-					#IFS=','
-					#local params=("today" "$secs_to_sleep")					
-					#echo "${params[@]}"
-					echo $secs_to_sleep
+					time="$display_hour:$minute"
+					yad --image=dialog-information --center --text="Reminder $name Set For $time $TOD" --width=300 --title="Reminder Set" 2>/dev/null &					
+					pid=$(((RANDOM%5000)+1))
+					echo "$ln: |Name: $name|Date: Today|Time: $time|$pid| " >> reminders.conf
+					local params=($pid $secs_to_sleep)
+					echo "${params[@]}"
 					break
 					;;
 
@@ -330,6 +361,7 @@ for i in "${cases[@]}"; do
 					echo "Work In Progress, Coming Soon"
 					;;
 		*[[:digit:]]*)
+					hr=0; minit=0
 					declare -i secs_to_sleep=0					
 					custom_time=$(sed 's@[a-z,A-Z]@@g' <<< $date)
 					if [ ! -z $(grep -i -o pm <<< $date) ]; then
@@ -338,7 +370,7 @@ for i in "${cases[@]}"; do
 					TOD=am
 				else
 					TOD=$(zenity --entry --text="$custom_time AM or PM" --title="AM or PM" --width=200 2>/dev/null)
-					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD)
+					TOD=$(tr '[:upper:]' '[:lower:]' <<< $TOD | sed 's@[[:digit:]]@@g')
 				fi
 					declare -i counter=0
 					hour=00 ; min=00 ; sec=00
@@ -350,7 +382,8 @@ for i in "${cases[@]}"; do
 					elif [ $counter -eq 1 ]; then
 						minit=$i
 						min=$(printf '%02g' $i)
-						counter+=1					
+						pid=$(((RANDOM%5000)+1))
+						counter+=1					echo "$ln: |Name: $name|Date: Tomorrow|Time: $time|$pid| " >> reminders.conf
 					fi
 					
 				done
@@ -361,13 +394,15 @@ for i in "${cases[@]}"; do
 
 				if [ "$TOD" == "am" ] && [ $hr -eq 12 ]; then
 					hr=0
-				fi
-				
+				fi				
 				heur=$(date +%H)
+				if [ $heur -lt 10 ]; then
+					heur=$(printf '%01g' $heur)
+				fi
 				min=$(date +%M)
 				if [ "$TOD" == "am" ] && [ $hr -lt $(date +%H) -a ! $hr -eq 0 ]; then
 				hr=$((hr+24))
-			fi
+			fi				
 				heur=$((hr-heur))
 				min_diff=$((minit-min))
 				if [ $minit -lt $(date +%M) ] && [ $hr -gt $(date +%H) ]; then
@@ -383,10 +418,11 @@ for i in "${cases[@]}"; do
 				else
 					yad --center --image=dialog-information --text="Reminder "$name" Set For $min_diff minutes From Now" --width=300 --title="Reminder Set" --button=gtk-ok 2>/dev/null &
 				fi				
-					#IFS=','
-					#local params=("today" "$secs_to_sleep")			
-					#echo "${params[@]}"
-					echo $secs_to_sleep
+					#IFS=','					
+					pid=$(((RANDOM%5000)+1))
+					echo "$ln: |Name: $name|Date: Today|Time: $time|$pid| " >> reminders.conf
+					local params=($pid $secs_to_sleep)
+					echo "${params[@]}"
 				break
 					;;		
 		*) echo "No case For This Yet";;
@@ -394,25 +430,28 @@ for i in "${cases[@]}"; do
 	fi
 done
 }
+name="$1"
+time="$2"
 #formerIFS="$IFS"
 #IFS=','
-#x=($(decideWhen $time))
-#IFS="$formerIFS"
-#declare -i counter=0
-#for i in ${x[@]}; do
-#	if [ $counter -eq 0 ]; then
-#		when=$i
-#		counter+=1
-#	elif [ $counter -eq 1 ]; then
-		interval=$(decideWhen $time)
-#		counter+=1	
-#	fi
-#done
+x=($(decideWhen $time))
+IFS="$formerIFS"
+declare -i counter=0
+for i in ${x[@]}; do
+	if [ $counter -eq 0 ]; then
+		when=$pid
+		counter+=1
+	elif [ $counter -eq 1 ]; then
+		interval=$i
+		counter+=1	
+	fi
+done
 
 #case $when in 
 #	"today") 
-			sleep $interval
-			zenity --info --text="Yo, Here's The Reminder For: $name" --title="Reminder" --width=300 2>/dev/null
+			sleep $interval 
+			zenity --info --text="Yo, Here's The Reminder For: $name" --title="Reminder" --width=300 2>/dev/null &
+			recount $pid
 			exit 0
 #			;;
 #	*) echo "Something Is Really Wrong, Code Is Not Supposed To Reach Here"
