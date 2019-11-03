@@ -1,0 +1,26 @@
+#!/bin/bash
+arg="$1"
+if [ ! -z "$(grep -w list <<< $arg)" -o ! -z "$(grep -w l <<< $arg)" ]; then
+	tr '|' '\n' < reminders.conf | sed -E 's@[[:digit:]]{3,4}@@g' > file
+	curl -s -d "text=$(cat file)" -d "chat_id=502979049" "https://api.telegram.org/bot858031130:AAG2R-vCliS0NB9HXYq4iDk58hWeE1uwvvA/sendMessage" >/dev/null 2>&1
+	rm -rf file
+	exit 0
+fi
+name=$(
+	yad --entry \
+	--center \
+	--text="Enter A Name For Your Reminder" \
+	--title="Reminder Name" \
+	--width=450 \
+	2>/dev/null
+)
+
+time=$(yad --entry \
+--center \
+--text="Hola Boss, When Do You Want To Be Reminded" \
+--title="Reminder" \
+--width=300 \
+2>/dev/null
+)
+
+./Reminder "$name" "$time" &
