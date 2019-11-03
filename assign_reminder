@@ -1,0 +1,60 @@
+#!/bin/bash
+
+#Bot Token
+export token=""
+
+#Check Interval
+export intraval=3
+
+echo "+"
+echo -e "\nInitializing Dharmy_bot v$version"
+ME=$(curl -s "https://api.telegram.org/bot$token/getMe")
+if [ ! -z $(echo $ME | grep \"ok\"\:true) ]; then
+    ME=$(tr -d "{" <<< $ME| tr -d "}" | tr -d '\"')
+            USERNAME=$(sed 's@.*username\:@@' <<< $ME)
+            echo Username: $USERNAME
+            NAME=$(sed 's@.*first_name\:@@' <<< $ME | sed 's@\,.*@@')
+            echo Name: $NAME
+            ID=$(sed 's@.*id\:@@' <<< $ME | sed 's@\,..*@@')
+            echo ID: $ID
+else
+    echo "Error: Network Issues Or Invalid Token"
+    exit 1
+fi
+[ -d docs ] || mkdir docs
+[ -d $Chat_Id ] || mkdir $Chat_Id
+[ -d updates ] || mkdir updates
+[ -f "./docs/UIDs" ] || touch "./docs/UIDs"
+while read -r id || [[ -n $id ]]; do
+	echo "Starting Session For $id"
+	./dharmy_bot $id &
+done < "./docs/UIDs"
+echo -e "Initialization Done: Hunting For New Chat Ids"
+getUserDetails(){
+    delim="$1"
+    shift
+	url="$(sed 's@\"@@g' <<< $1)"
+    url="$(sed 's@.*chat\"\:@@' <<< $url | tr -d '}' | tr -d '{' | tr -d ']')"
+    shift
+    echo $(sed 's@.*\<'$delim'\>\:@@' <<< "$url" | sed 's@\,.*@@')
+}
+while :
+	do
+nw_msg=$(curl --silent "https://api.telegram.org/bot$token/getUpdates" | sed '1d')
+if [ ! -z "$nw_msg" ]; then
+	while read -r msg || [[ -n $msg ]]; do
+		Chat_Id=$(getUserDetails id $msg)
+		if [ -z $(cat "./docs/UIDs" | grep  $Chat_Id) ]; then
+		user=$(getUserDetails first_name $msg)
+		echo "New Chat Id Found"
+		echo $Chat_Id >> "./docs/UIDs"
+		curl -s -d "text=$user Now Uses Your Bot......... Hurrah %F0%9F%8E%89" -d "chat_id=502979049" "https://api.telegram.org/bot$token/sendMessage" >/dev/null 2>&1
+#		echo Start In Background Here
+		./set_reminder $Chat_Id &
+		fi
+		done <<< $nw_msg
+	fi
+	sleep $interval
+done
+
+
