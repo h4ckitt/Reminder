@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #name=$(
 #	yad --entry \
 #	--center \
@@ -15,6 +15,7 @@
 #--width=300 \
 #2>/dev/null
 #)
+[ -f reminder.conf ]|| touch reminder.conf
 ln=$(($(wc -l < reminders.conf)+1))
 cases=("tomorrow" "next week" "hour" "minute" "minutes" "days" "today" "min" "mins" "hr")
 dow=("monday" "tuesday" "wednesday" "thursday" "friday" "saturday" "sunday")
@@ -26,7 +27,7 @@ recount(){
 	declare -i count=1
 	numLine=$(($(wc -l < reminders.conf)+1))
 	while ! [ $count -eq $numLine ]; do
-		sed -i ''$count's@[[:digit:]]@'$count'@' reminders.conf
+		sed -i ''$count's@.[[:digit:]]*:@'$count':@' reminders.conf
 		count+=1
 	done
 }
@@ -61,7 +62,7 @@ for i in "${cases[@]}"; do
 						counter+=1					
 					fi
 				done
-				time="$hour":"$min"
+				time="$hour:$min $TOD"
 				#echo "Got it, I'll Remind You At $time $TOD"
 				if [ "$TOD" == "pm" ]; then
 				if [ $hour -lt 10 ]; then
@@ -192,7 +193,7 @@ for i in "${cases[@]}"; do
 						counter+=1					
 					fi
 				done
-				time="$hour":"$min"
+				time="$hour:$min $TOD"
 			fi			
 			declare -i secs_to_sleep=0
 			declare -i secs_to_tomorrow=0
@@ -223,7 +224,7 @@ for i in "${cases[@]}"; do
 			secs_to_sleep+=$secs_to_tomorrow
 			secs_to_sleep+=$((hr*3600))
 			secs_to_sleep+=$((minit*60))
-			yad --center --image=dialog-information --text="Reminder Set For $day $date, $mnth At $time $TOD" --title="Reminder" --button=gtk-ok --width=450 2>/dev/null &			
+			yad --center --image=dialog-information --text="Reminder Set For $day $date, $mnth At $time" --title="Reminder" --button=gtk-ok --width=450 2>/dev/null &			
 			pid=$(((RANDOM%5000)+1))
 			echo "$ln: |Name: $name|Date: Tomorrow|Time: $time|$pid| " >> reminders.conf 
 			local params=($pid $secs_to_sleep)
@@ -276,8 +277,8 @@ for i in "${cases[@]}"; do
 						display_hour=$hour
 						TOD=Am
 					fi
-					time="$display_hour:$minute"
-					yad --image=dialog-information --center --text="Reminder $name Set For $time $TOD" --width=300 --title="Reminder Set" 2>/dev/null &					
+					time="$display_hour:$minute $TOD"
+					yad --image=dialog-information --center --text="Reminder $name Set For $time" --width=300 --title="Reminder Set" 2>/dev/null &					
 					pid=$(((RANDOM%5000)+1))
 					echo "$ln: |Name: $name|Date: Today|Time: $time|$pid| " >> reminders.conf
 					local params=($pid $secs_to_sleep)
@@ -439,7 +440,7 @@ IFS="$formerIFS"
 declare -i counter=0
 for i in ${x[@]}; do
 	if [ $counter -eq 0 ]; then
-		when=$pid
+		pid=$i
 		counter+=1
 	elif [ $counter -eq 1 ]; then
 		interval=$i
