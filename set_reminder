@@ -1,26 +1,121 @@
 #!/bin/bash
-arg="$1"
-if [ ! -z "$(grep -w list <<< $arg)" -o ! -z "$(grep -w l <<< $arg)" ]; then
-	tr '|' '\n' < reminders.conf | sed -E 's@[[:digit:]]{3,4}@@g' > file
-	curl -s -d "text=$(cat file)" -d "chat_id=502979049" "https://api.telegram.org/bot858031130:AAG2R-vCliS0NB9HXYq4iDk58hWeE1uwvvA/sendMessage" >/dev/null 2>&1
-	rm -rf file
-	exit 0
+export Chat_id=$1
+set --
+[ ! -z $Chat_Id ] || {
+	echo "No Chat Id Specified, Exiting"
+	exit 1
+	}
+invalid_responses=("Say What Now" "Sorry?" "What?" "I Dont Understand That" "Retry With Something I Understand" "I Don't Get You" "Uhh, What?" "I'm Sorry I Didn't Get That")
+for i in ${invalid_responses[@]};
+	do
+		inval+=1
+done
+
+[ -f $Chat_Id/reminderList.conf ] || touch $Chat_Id/reminderList.conf
+declare -A commands
+commands=(
+		["add"]="echo Hello, $1"
+		["list"]="./bin/mail_fetch"
+		["remove"]="echo Hola, $1"
+		["help"]="echo Hiyah, $1"		
+)
+echo -e "New Session Started For $Chat_Id......\n"
+echo ""
+LastMsgId=0
+
+getUserDetails(){
+    delim="$1"
+    shift
+    url="$(sed 's@\"@@g' <<< $1)"
+    url="$(sed 's@.*chat\"\:@@' <<< $url | tr -d '}' | tr -d '{' | tr -d ']')"
+    shift
+    echo $(sed 's@.*\<'$delim'\>\:@@' <<< "$url" | sed 's@\,.*@@')
+}
+run_command(){
+		${commands[$command]} $1
+		return
+}
+
+
+check_valid(){
+		text="$1"
+		shift
+		Username="$1"
+		shift
+		export Chat_Id="$1"
+		for command in "${!commands[@]}"; do
+		if [[ "$( tr '[:upper:]' '[:lower:]' <<< $text)" =~ "$command" ]]; then
+			case $(tr '[:upper:]' '[:lower:]' <<< $text) in
+				*"list"*)
+						tr '|' '\n' < $Chat_Id/reminderList.conf | sed -E 's@[[:digit:]]{3,4}@@g' > file
+						curl -s -d "text=$(cat file)" -d "chat_id=$Chat_Id" "https://api.telegram.org/bot$token/sendMessage" >/dev/null 2>&1
+						rm -rf file
+						exit 0
+						;;
+				*"add"*)
+						curl -s -d "text=Give Your Reminder A Name" -d "chat_id=$Chat_Id" "https://api.telegram.org/bot$token/sendMessage" >/dev/null 2>&1
+						name=$(getUpdates name)
+						curl -s -d "text=When Do You Want To Be Reminded?" -d "chat_id=$Chat_Id" "https://api.telegram.org/bot$token/sendMessage" >/dev/null 2>&1
+						time=$(getUpdates time)
+						./Reminder "$name" "$time" &
+						;;
+				*)		curl -s -d "text=${invalid_responses[((RANDOM%inval))]}" -d "chat_id=$Chat_Id" "https://api.telegram.org/bot$token/sendMessage" >/dev/null 2>&1
 fi
-name=$(
-	yad --entry \
-	--center \
-	--text="Enter A Name For Your Reminder" \
-	--title="Reminder Name" \
-	--width=450 \
-	2>/dev/null
-)
+done
+#list(){
+#	tr '|' '\n' < reminders.conf | sed -E 's@[[:digit:]]{3,4}@@g' > file
+#	curl -s -d "text=$(cat file)" -d "chat_id=502979049" "https://api.telegram.org/bot858031130:AAG2R-vCliS0NB9HXYq4iDk58hWeE1uwvvA/sendMessage" >/dev/null 2>&1
+#	rm -rf file
+#	exit 0
+#}
+#
+#add(){
+#name=$(
+#	yad --entry \
+#	--center \
+#	--text="Enter A Name For Your Reminder" \
+#	--title="Reminder Name" \
+#	--width=450 \
+#	2>/dev/null
+#)
+#
+#time=$(yad --entry \
+#--center \
+#--text="Hola Boss, When Do You Want To Be Reminded" \
+#--title="Reminder" \
+#--width=300 \
+#2>/dev/null
+#)
+#./Reminder "$name" "$time" &
+#}
 
-time=$(yad --entry \
---center \
---text="Hola Boss, When Do You Want To Be Reminded" \
---title="Reminder" \
---width=300 \
-2>/dev/null
-)
-
-./Reminder "$name" "$time" &
+get_updates(){
+while :
+	do
+		NEW_MSG=$(curl --silent "https://api.telegram.org/bot$token/getUpdates" | sed '1d')
+		if [ ! -z "$NEW_MSG" ]; then
+		while read -r msg || [[ -n $msg ]]; do
+			read -r update < updates/$Chat_Id.lastupdate
+			msg_Chat_Id=$(getUserDetails id $msg)
+			if [ $msg_Chat_Id -eq $Chat_Id ]; then
+			MsgId=$(sed 's@.*message_id\"\:@@' <<< $msg | tr -d '}' | tr -d '{' | tr -d '\"' | tr -d ']' | sed 's|\,.*||')
+			if [ $MsgId -gt $update ]; then
+			echo $MsgId > updates/$Chat_Id.lastupdate
+			Username=$(getUserDetails first_name $msg)
+			Text=$(getUserDetails text "$msg")
+			LastMsgId=$(sed 's@.*message_id\"\:@@' <<< $msg | tr -d '}' | tr -d '{' | tr -d '\"' | tr -d ']' | sed 's|\,.*||')
+			if [ -z "$1" ]; then
+			echo "Message From $Username: $Text"
+			check_valid "$Text" $Username $msg_Chat_Id
+			else
+			echo "$Text"
+			return
+			fi
+			fi
+			fi
+		done <<< $NEW_MSG
+		fi
+	sleep $interval
+done
+}
+get_updates
